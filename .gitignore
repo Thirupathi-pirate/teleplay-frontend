@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Database (runtime data)
+*.db
+*.sqlite
+
+# Session files (contains auth tokens)
+session/
+*.session
+*.session-journal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
