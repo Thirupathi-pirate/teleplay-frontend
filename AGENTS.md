@@ -47,9 +47,16 @@ FROM nginx:alpine
 
 ## Gotchas
 - Token is stored in `localStorage('access_token')` and sent via `Authorization: Bearer` header (axios interceptor). Thumbnails use `AuthImage` component (fetch + blob URL with Bearer header) — no `?token=` in `<img>` tags.
-- `<video>`/`<audio>` stream URLs unavoidably include `?token=` query param. `referrerPolicy="no-referrer"` is set on media elements.
-- Drag-and-drop: FileCard sets `text/plain` data, FolderCard sets `application/json` data with `{type, id}`.
+- `<video>`/`<audio>` stream URLs unavoidably include `?token=` query param. Streams are same-origin so no cross-origin referrer concerns.
+- **Share/copy URLs** use `public_stream_url` (token-free) — never expose `?token=` in shared links. `GlobalContextMenu` splits the two: download uses token, copy/share uses public hash.
+- **Auth retry:** `useCurrentUser` retries 2 times (1s delay). If all fail, a Retry button (`refetch()`) is shown alongside "Go to Login".
+- **AuthImage:** Blobs are capped at 5MB to prevent memory exhaustion on oversized thumbnails.
+- **Icons:** All emoji characters (🚀🎵🎬) replaced with lucide-react SVG icons (`Zap`, `Music`, `Film`) for cross-platform consistency.
+- **Path alias:** `@` maps to `src/` in both `vite.config.ts` and `tsconfig.json`.
+- **Firefox scrollbar:** `scrollbar-width: thin` and `scrollbar-color` set in `index.css`.
+- Drag-and-drop: FileCard sets `text/plain` data (`String(file.id)`), FolderCard sets `application/json` data with `{type, id}`.
 - `@dnd-kit/*` and `video.js` have been removed — not used.
 - `package-lock.json` must be committed for reproducible builds.
 - Dev proxy config in `vite.config.ts` proxies `/api` → `http://localhost:8000`.
 - TypeScript strict mode with `noUnusedLocals`, `noUnusedParameters`.
+- Build is via Vite (esbuild), not `tsc`. Run `npx tsc --noEmit` separately to catch type errors.
