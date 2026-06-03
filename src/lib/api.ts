@@ -77,9 +77,10 @@ export interface AuthResponse {
     user: User;
 }
 
-// API client
+// API client — use runtime config (set by index.html) or fallback to /api
+const API_BASE = (window as any).__BACKEND_URL__ || '';
 export const api = axios.create({
-    baseURL: '/api',
+    baseURL: API_BASE + '/api',
 });
 
 // Add auth token to requests
@@ -148,7 +149,7 @@ api.interceptors.response.use(
                     throw new Error('No refresh token available');
                 }
 
-                const { data } = await axios.post('/api/auth/refresh', {
+                const { data } = await axios.post(API_BASE + '/api/auth/refresh', {
                     refresh_token: refreshToken,
                 });
 
