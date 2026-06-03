@@ -32,11 +32,6 @@ export default function DeleteConfirmModal({ type, name, count = 1, onConfirm, o
 
                 <div className="text-dark-300 mb-6">
                     <p>{message}</p>
-                    {type === 'folder' && (
-                        <p className="mt-2 text-sm text-dark-400">
-                            Files in this folder will be moved to root.
-                        </p>
-                    )}
                     <p className="mt-2 text-sm text-red-400">
                         This action cannot be undone.
                     </p>

@@ -4,6 +4,7 @@
 import { Play, MoreVertical, Film, Music, FileText, Image } from 'lucide-react';
 import { TelegramFile, formatFileSize, formatDuration } from '../lib/api';
 import { useAppStore } from '../lib/store';
+import AuthImage from './AuthImage';
 
 interface FileCardProps {
     file: TelegramFile;
@@ -44,12 +45,6 @@ export default function FileCard({
         onPlay();
     };
 
-    // Generate authenticated stream URL for thumbnail
-    const token = localStorage.getItem('access_token');
-    const authorizedThumbnailUrl = file.thumbnail_url
-        ? `${file.thumbnail_url}${file.thumbnail_url.includes('?') ? '&' : '?'}token=${token}`
-        : null;
-
     const getIcon = () => {
         switch (file.file_type) {
             case 'video': return <Film className="w-8 h-8 text-primary-400" />;
@@ -76,14 +71,16 @@ export default function FileCard({
                         ? 'bg-primary-500/10 border border-primary-500/30'
                         : 'glass-card hover:bg-white/[0.03] border-white/[0.05]'
                     }`}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('text/plain', file.id)}
                 onClick={handleClick}
                 onContextMenu={handleContextMenu}
                 onDoubleClick={handleDoubleClick}
                 data-file-id={file.id}
             >
                 <div className="w-12 h-12 rounded-lg bg-dark-800/80 flex items-center justify-center overflow-hidden shrink-0 border border-white/[0.05]">
-                    {authorizedThumbnailUrl ? (
-                        <img src={authorizedThumbnailUrl} alt={file.file_name} className="w-full h-full object-cover" />
+                    {file.thumbnail_url ? (
+                        <AuthImage src={file.thumbnail_url} alt={file.file_name} className="w-full h-full object-cover" />
                     ) : (
                         getIcon()
                     )}
@@ -143,16 +140,17 @@ export default function FileCard({
                     ? 'bg-primary-500/10 border border-primary-500/30 shadow-lg shadow-primary-500/5'
                     : 'glass-card hover:bg-dark-800/60 hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1'
                 }`}
+            draggable
+            onDragStart={(e) => e.dataTransfer.setData('text/plain', file.id)}
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             onDoubleClick={handleDoubleClick}
             data-file-id={file.id}
         >
             <div className={`aspect-video rounded-lg mb-3 overflow-hidden relative border ${selected ? 'border-primary-500/20' : 'border-white/[0.05]'} bg-dark-900/50`}>
-                {authorizedThumbnailUrl ? (
+                {file.thumbnail_url ? (
                     <>
-                        <img src={authorizedThumbnailUrl} alt={file.file_name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                        {/* Gradient overlay */}
+                        <AuthImage src={file.thumbnail_url} alt={file.file_name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </>
                 ) : (

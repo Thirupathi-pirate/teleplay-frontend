@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useCurrentUser, useLoginWithCode, useBotInfo, useGenerateLoginCode, useVerifyLoginCode } from './lib/api';
 import FileBrowser from './components/FileBrowser';
 import GlobalContextMenu from './components/GlobalContextMenu';
+import MediaPlayer from './components/MediaPlayer';
 import logo from './assets/logo.png';
 
 function AuthCallback() {
@@ -310,8 +311,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     return <>{children}</>;
 }
-
-import MediaPlayer from './components/MediaPlayer';
 
 function App() {
     return (

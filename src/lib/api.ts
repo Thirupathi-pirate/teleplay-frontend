@@ -71,21 +71,6 @@ export interface StorageStats {
     limit: number;
 }
 
-export interface StorageStats {
-    total_size: number;
-    limit: number;
-}
-
-export interface StorageStats {
-    total_size: number;
-    limit: number;
-}
-
-export interface StorageStats {
-    total_size: number;
-    limit: number;
-}
-
 export interface AuthResponse {
     access_token: string;
     refresh_token: string;
@@ -317,7 +302,7 @@ export const useDeleteFiles = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (ids: number[]) => {
-            await api.post('/files/batch-delete', ids as any); // Axios automatically handles array as JSON body
+            await api.post('/files/batch-delete', ids);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -466,7 +451,7 @@ export const useDeleteFolders = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (ids: number[]) => {
-            await api.post('/folders/batch-delete', ids as any);
+            await api.post('/folders/batch-delete', ids);
         },
         onSuccess: () => {
              queryClient.invalidateQueries({ queryKey: ['folders'] });

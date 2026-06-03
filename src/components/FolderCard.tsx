@@ -83,6 +83,8 @@ export default function FolderCard({ folder, viewMode, selected, onSelect, onOpe
                 className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 animate-slide-up active:scale-[0.99]
                     glass-card hover:bg-white/[0.03] border-white/[0.05] group
                     ${dropStyles} ${selectedStyles}`}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'folder', id: folder.id }))}
                 onClick={handleClick}
                 onContextMenu={handleContextMenu}
                 onDragOver={handleDragOver}
@@ -144,6 +146,8 @@ export default function FolderCard({ folder, viewMode, selected, onSelect, onOpe
             className={`p-4 rounded-xl cursor-pointer transition-all duration-300 group relative animate-scale-in select-none
                 glass-card hover:bg-dark-800/60 hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1
                 ${dropStyles} ${selectedStyles}`}
+            draggable
+            onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'folder', id: folder.id }))}
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             onDragOver={handleDragOver}

@@ -5,6 +5,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, ChevronDown, ChevronUp } from 'lucide-react';
 import { TelegramFile, formatDuration, useUpdateProgress, useFile, api } from '../lib/api';
 import { useAppStore } from '../lib/store';
+import AuthImage from './AuthImage';
 
 export default function MediaPlayer() {
     const { previewFile: file, setPreviewFile, isPlayerMinimized, setPlayerMinimized } = useAppStore();
@@ -283,10 +284,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const externalUrl = publicUrl || authorizedStreamUrl;
     const vlcUrl = `vlc://${externalUrl}`;
 
-    // Authorized Thumbnail URL
-    const relativeThumbnailUrl = file.thumbnail_url ? `${file.thumbnail_url}?token=${token}` : null;
-    const authorizedThumbnailUrl = relativeThumbnailUrl ? getAbsoluteUrl(relativeThumbnailUrl) : null;
-
     // Common Media Element
     const MediaElement = isVideo ? (
         <video
@@ -301,6 +298,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             onError={handleError}
             controls={false}
             playsInline
+            referrerPolicy="no-referrer"
         />
     ) : (
         <audio
@@ -311,6 +309,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             onWaiting={handleWaiting}
             onPlaying={handlePlaying}
             onError={handleError}
+            referrerPolicy="no-referrer"
         />
     );
 
@@ -375,16 +374,12 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                         {/* Audio Visualization / Thumbnail for non-video files in Fullscreen */}
                         {!isVideo && !isMinimized && (
                             <div className="text-center z-10 glass-panel p-10 animate-scale-in absolute overflow-hidden">
-                                {authorizedThumbnailUrl ? (
+                                {file.thumbnail_url ? (
                                     <div className="w-64 h-64 mx-auto mb-6 rounded-2xl bg-dark-800 shadow-2xl overflow-hidden border border-white/10 relative group">
-                                         <img 
-                                            src={authorizedThumbnailUrl} 
+                                         <AuthImage 
+                                            src={file.thumbnail_url} 
                                             alt={file.file_name} 
                                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.parentElement?.classList.add('hidden');
-                                            }}
                                          />
                                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <span className="text-white text-sm font-medium">Original Artwork</span>

@@ -166,7 +166,7 @@ export default function GlobalContextMenu() {
                                     <FolderInput className="w-4 h-4" />
                                     Move ({selectedFileIds.size}) Items
                                 </button>
-                                <button className="context-menu-item w-full text-left text-red-400 hover:bg-red-500/10" onClick={() => handleAction(() => setDeleteConfirm({ type: 'file', items: Array.from(selectedFileIds).map(id => ({ id } as any)) }))}> 
+                                <button className="context-menu-item w-full text-left text-red-400 hover:bg-red-500/10" onClick={() => handleAction(() => setDeleteConfirm({ type: 'file', items: selectedFiles }))}> 
                                     <Trash2 className="w-4 h-4" />
                                     Delete ({selectedFileIds.size}) Items
                                 </button>
