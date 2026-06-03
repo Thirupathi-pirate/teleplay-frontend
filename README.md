@@ -1,3 +1,12 @@
+---
+title: TelePlay
+emoji: 🎬
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 <div align="center">
   <img src="logo.png" width="80" alt="TelePlay Logo"/>
   <h1>TelePlay</h1>
