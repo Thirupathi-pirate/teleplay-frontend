@@ -261,7 +261,7 @@ function BotLink({ code }: { code?: string }) {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { data: user, isLoading, error } = useCurrentUser();
+    const { data: user, isLoading, error, mutate } = useCurrentUser();
     const token = localStorage.getItem('access_token');
 
     console.log('[ProtectedRoute] Token exists:', !!token);
@@ -295,15 +295,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
                     <p className="text-dark-400 text-sm mb-4">
                         {error instanceof Error ? error.message : 'Failed to verify token'}
                     </p>
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('access_token');
-                            window.location.href = '/login';
-                        }}
-                        className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded text-white"
-                    >
-                        Go to Login
-                    </button>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={() => mutate()}
+                            className="px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded text-white transition-colors"
+                        >
+                            Retry
+                        </button>
+                        <button
+                            onClick={() => {
+                                localStorage.removeItem('access_token');
+                                window.location.href = '/login';
+                            }}
+                            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded text-white transition-colors"
+                        >
+                            Go to Login
+                        </button>
+                    </div>
                 </div>
             </div>
         );

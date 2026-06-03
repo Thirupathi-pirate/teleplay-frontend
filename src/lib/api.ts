@@ -190,7 +190,8 @@ export const useCurrentUser = () => {
             const { data } = await api.get<User>('/auth/me');
             return data;
         },
-        retry: false,
+        retry: 2,
+        retryDelay: 1000,
     });
 };
 

@@ -1,8 +1,8 @@
-import { Files, Clock, PlayCircle, LogOut, HardDrive, X, Users } from 'lucide-react';
+import { Files, Clock, PlayCircle, LogOut, HardDrive, X, Users, Zap } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAppStore } from '../lib/store';
 import { useStorageStats, formatFileSize, useLogoutAll } from '../lib/api';
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -38,7 +38,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         onClose(); // Close sidebar on mobile when item clicked
     };
 
-    const NavItem = ({ section, icon: Icon, label }: { section: 'files' | 'recent' | 'continue_watching', icon: any, label: string }) => (
+    const NavItem = ({ section, icon: Icon, label }: { section: 'files' | 'recent' | 'continue_watching', icon: ComponentType<{ className?: string }>, label: string }) => (
         <button
             onClick={() => handleNavClick(section)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
@@ -108,7 +108,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 {formatFileSize(storage.total_size)}
                             </div>
                             <div className="text-xs text-primary-400">
-                                Unlimited Storage 🚀
+                                Unlimited Storage <Zap className="w-3 h-3 inline-block text-primary-400" />
                             </div>
                         </>
                     ) : (

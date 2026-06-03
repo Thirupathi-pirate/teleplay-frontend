@@ -192,6 +192,8 @@ export default function FileBrowser() {
             }
             setDeleteConfirm(null);
             clearSelection();
+            refetchFiles();
+            refetchFolders();
             addToast('Items deleted successfully', 'success');
         } catch (error) {
             console.error('Delete failed:', error);

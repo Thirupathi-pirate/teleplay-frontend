@@ -2,7 +2,7 @@
  * MediaPlayer - full screen video/audio player
  */
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, ChevronDown, ChevronUp, Film, Music } from 'lucide-react';
 import { TelegramFile, formatDuration, useUpdateProgress, useFile, api } from '../lib/api';
 import { useAppStore } from '../lib/store';
 import AuthImage from './AuthImage';
@@ -44,6 +44,12 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const { mutate: updateProgress } = useUpdateProgress();
 
     const isVideo = file.file_type === 'video';
+
+    const getAbsoluteUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('http')) return url;
+        return `${window.location.origin}${url}`;
+    };
 
     // Auto-ensure public link exists for VLC/Download/Copy
     useEffect(() => {
@@ -106,7 +112,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
         return () => saveProgress();
     }, [saveProgress]);
 
-    const togglePlay = (e?: any) => {
+    const togglePlay = useCallback((e?: any) => {
         e?.stopPropagation();
         if (videoRef.current) {
             if (isPlaying) {
@@ -117,16 +123,16 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             }
             setIsPlaying(!isPlaying);
         }
-    };
+    }, [isPlaying, saveProgress]);
 
-    const toggleMute = () => {
+    const toggleMute = useCallback(() => {
         if (videoRef.current) {
             videoRef.current.muted = !isMuted;
             setIsMuted(!isMuted);
         }
-    };
+    }, [isMuted]);
 
-    const toggleFullscreen = () => {
+    const toggleFullscreen = useCallback(() => {
         if (!document.fullscreenElement) {
             containerRef.current?.requestFullscreen();
             setIsFullscreen(true);
@@ -134,7 +140,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             document.exitFullscreen();
             setIsFullscreen(false);
         }
-    };
+    }, []);
 
     const togglePiP = async () => {
         if (document.pictureInPictureElement) {
@@ -250,7 +256,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isFullscreen, onClose, error, isPlaying, isMinimized]);
+    }, [isFullscreen, onClose, error, isMinimized, toggleMute, togglePlay, toggleFullscreen]);
 
     const handleMouseMove = () => {
         setShowControls(true);
@@ -273,14 +279,11 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
 
     const token = localStorage.getItem('access_token');
 
-    const getAbsoluteUrl = (url: string) => {
-        if (!url) return '';
-        if (url.startsWith('http')) return url;
-        return `${window.location.origin}${url}`;
-    };
-
     const relativeStreamUrl = `${file.stream_url}?token=${token}`;
     const authorizedStreamUrl = getAbsoluteUrl(relativeStreamUrl);
+    const authorizedThumbnailUrl = file.thumbnail_url
+        ? `${file.thumbnail_url}${file.thumbnail_url.includes('?') ? '&' : '?'}token=${token}`
+        : null;
     const externalUrl = publicUrl || authorizedStreamUrl;
     const vlcUrl = `vlc://${externalUrl}`;
 
@@ -388,7 +391,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                 ) : (
                                     <div className="w-64 h-64 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-500/20 to-pink-500/20 flex items-center justify-center border border-white/[0.08] shadow-2xl relative overflow-hidden group">
                                          <div className="absolute inset-0 bg-gradient-to-tr from-primary-500/10 to-transparent animate-pulse"></div>
-                                        <span className="text-8xl transform transition-transform duration-500 group-hover:scale-125 drop-shadow-lg">🎵</span>
+                                        <Music className="w-16 h-16 text-primary-400 transform transition-transform duration-500 group-hover:scale-125 drop-shadow-lg" />
                                     </div>
                                 )}
                                 <p className="text-2xl font-bold text-white mb-2 drop-shadow-md">{file.file_name}</p>
@@ -417,7 +420,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                             {authorizedThumbnailUrl ? (
                                 <img src={authorizedThumbnailUrl} alt="Thumb" className="w-full h-full object-cover" />
                             ) : (
-                                isVideo ? <span className="text-2xl">🎬</span> : <span className="text-2xl">🎵</span>
+                                isVideo ? <Film className="w-6 h-6 text-primary-400" /> : <Music className="w-6 h-6 text-primary-400" />
                             )}
                         </div>
                         <div className="truncate flex-1 min-w-0">

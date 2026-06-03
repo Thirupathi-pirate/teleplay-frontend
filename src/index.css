@@ -28,6 +28,11 @@ body {
 }
 
 /* Custom scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

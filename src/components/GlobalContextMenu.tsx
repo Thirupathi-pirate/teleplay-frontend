@@ -30,7 +30,6 @@ export default function GlobalContextMenu() {
     // Adjust position to keep within viewport
     const getMenuPosition = () => {
         const menuWidth = 220;
-        const menuHeight = 350; 
         const padding = 10;
 
         let posX = x;
@@ -39,8 +38,8 @@ export default function GlobalContextMenu() {
         if (posX + menuWidth > window.innerWidth - padding) {
             posX = window.innerWidth - menuWidth - padding;
         }
-        if (posY + menuHeight > window.innerHeight - padding) {
-            posY = window.innerHeight - menuHeight - padding;
+        if (posY > window.innerHeight - 300) {
+            posY = Math.max(padding, window.innerHeight - 300);
         }
 
         return { left: posX, top: posY };
@@ -70,9 +69,9 @@ export default function GlobalContextMenu() {
 
     const handleShare = async (file: TelegramFile) => {
         try {
-            const { data } = await api.post<TelegramFile>(`/files/${file.id}/share`);
+            const { data } = await api.post<{ public_stream_url: string }>(`/files/${file.id}/share`);
             if (activeContextMenu && activeContextMenu.type === 'file') {
-                setActiveContextMenu({ ...activeContextMenu, item: data });
+                setActiveContextMenu({ ...activeContextMenu, item: { ...file, ...data } });
             }
         } catch (error) {
             console.error('Failed to share file:', error);
@@ -81,21 +80,21 @@ export default function GlobalContextMenu() {
 
     const handleRevokeShare = async (file: TelegramFile) => {
         try {
-            const { data } = await api.delete<TelegramFile>(`/files/${file.id}/share`);
+            const { data } = await api.delete<{ public_stream_url?: string }>(`/files/${file.id}/share`);
             if (activeContextMenu && activeContextMenu.type === 'file') {
-                setActiveContextMenu({ ...activeContextMenu, item: data });
+                setActiveContextMenu({ ...activeContextMenu, item: { ...file, ...data } });
             }
         } catch (error) {
             console.error('Failed to revoke share:', error);
         }
     };
 
-    const ensurePublicLink = async (file: TelegramFile): Promise<string> => {
+    const ensurePublicLink = async (file: TelegramFile): Promise<string | null> => {
         if (file.public_stream_url) {
             return `${window.location.protocol}//${window.location.host}${file.public_stream_url}`;
         }
         try {
-            const { data } = await api.post<TelegramFile>(`/files/${file.id}/share`);
+            const { data } = await api.post(`/files/${file.id}/share`);
             if (data.public_stream_url) {
                 if (activeContextMenu && activeContextMenu.type === 'file') {
                     setActiveContextMenu({ ...activeContextMenu, item: data });
@@ -105,17 +104,20 @@ export default function GlobalContextMenu() {
         } catch (err) {
             console.error('Failed to create public link:', err);
         }
+        return null;
+    };
+
+    const getDownloadUrl = (file: TelegramFile): string => {
         const token = localStorage.getItem('access_token');
-        const downloadUrl = `${api.defaults.baseURL}/stream/${file.id}?token=${token}`;
-        return downloadUrl.startsWith('http')
-            ? downloadUrl
-            : `${window.location.protocol}//${window.location.host}${downloadUrl}`;
+        const url = `${api.defaults.baseURL}/stream/${file.id}?token=${token}&download=1`;
+        return url.startsWith('http')
+            ? url
+            : `${window.location.protocol}//${window.location.host}${url}`;
     };
 
     const handleDownload = async (file: TelegramFile) => {
         try {
-            const url = await ensurePublicLink(file);
-            const downloadUrl = url + (url.includes('?') ? '&' : '?') + 'download=1';
+            const downloadUrl = getDownloadUrl(file);
             const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = file.file_name;
@@ -181,7 +183,7 @@ export default function GlobalContextMenu() {
                                 )}
                                 <button
                                     className="context-menu-item w-full text-left"
-                                    onClick={() => { handleDownload(activeContextMenu.item as TelegramFile); setActiveContextMenu(null); }}
+                                    onClick={() => handleAction(() => handleDownload(activeContextMenu.item as TelegramFile))}
                                 >
                                     <Download className="w-4 h-4" />
                                     Download
@@ -191,7 +193,7 @@ export default function GlobalContextMenu() {
 
                                 <button className="context-menu-item w-full text-left" onClick={async () => {
                                     const url = await ensurePublicLink(activeContextMenu.item as TelegramFile);
-                                    handleCopy(url, 'stream');
+                                    if (url) handleCopy(url, 'stream');
                                 }}>
                                     <Link className="w-4 h-4" />
                                     {copiedId === 'stream' ? '✓ Copied!' : 'Copy Stream URL'}
@@ -199,8 +201,7 @@ export default function GlobalContextMenu() {
 
                                 <button className="context-menu-item w-full text-left" onClick={async () => {
                                     const url = await ensurePublicLink(activeContextMenu.item as TelegramFile);
-                                    const downloadUrl = url + (url.includes('?') ? '&' : '?') + 'download=1';
-                                    handleCopy(downloadUrl, 'download');
+                                    if (url) handleCopy(url + (url.includes('?') ? '&' : '?') + 'download=1', 'download');
                                 }}>
                                     <HardDriveDownload className="w-4 h-4" />
                                     {copiedId === 'download' ? '✓ Copied!' : 'Copy Download URL'}
