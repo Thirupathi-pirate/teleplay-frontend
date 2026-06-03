@@ -1,4 +1,4 @@
-ARG VITE_API_URL=https://yourname-teleplay-backend.hf.space
+ARG VITE_API_URL=https://lavender7736-teleplay-backend.hf.space
 
 FROM node:20-slim as builder
 
