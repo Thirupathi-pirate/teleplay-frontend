@@ -261,7 +261,7 @@ function BotLink({ code }: { code?: string }) {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { data: user, isLoading, error, mutate } = useCurrentUser();
+    const { data: user, isLoading, error, refetch } = useCurrentUser();
     const token = localStorage.getItem('access_token');
 
     console.log('[ProtectedRoute] Token exists:', !!token);
@@ -297,7 +297,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
                     </p>
                     <div className="flex gap-3 justify-center">
                         <button
-                            onClick={() => mutate()}
+                            onClick={() => refetch()}
                             className="px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded text-white transition-colors"
                         >
                             Retry

@@ -72,7 +72,7 @@ export default function FileCard({
                         : 'glass-card hover:bg-white/[0.03] border-white/[0.05]'
                     }`}
                 draggable
-                onDragStart={(e) => e.dataTransfer.setData('text/plain', file.id)}
+                onDragStart={(e) => e.dataTransfer.setData('text/plain', String(file.id))}
                 onClick={handleClick}
                 onContextMenu={handleContextMenu}
                 onDoubleClick={handleDoubleClick}
@@ -141,7 +141,7 @@ export default function FileCard({
                     : 'glass-card hover:bg-dark-800/60 hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1'
                 }`}
             draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', file.id)}
+            onDragStart={(e) => e.dataTransfer.setData('text/plain', String(file.id))}
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             onDoubleClick={handleDoubleClick}

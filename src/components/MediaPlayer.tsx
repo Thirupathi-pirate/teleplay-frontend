@@ -301,7 +301,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             onError={handleError}
             controls={false}
             playsInline
-            referrerPolicy="no-referrer"
         />
     ) : (
         <audio
@@ -312,7 +311,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             onWaiting={handleWaiting}
             onPlaying={handlePlaying}
             onError={handleError}
-            referrerPolicy="no-referrer"
         />
     );
 
