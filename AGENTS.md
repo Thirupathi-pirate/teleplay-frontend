@@ -1,26 +1,55 @@
 # TelePlay Frontend — Agent Guide
 
-## Build Context
-- Dockerfile uses `COPY . .` in the builder stage — all source files must be at repo root.
-- `hf-wrapper/` is included but NOT used by the Dockerfile (nginx container, no wrapper entrypoint).
-- If hf-wrapper is ever needed, change Dockerfile to `ENTRYPOINT ["/opt/hf-wrapper/start.sh"]` and set `APP_START_CMD=nginx -g "daemon off;"`.
+## App structure
+- **SPA:** React 18 + TypeScript, built with Vite, served by nginx:alpine
+- **State:** Zustand store at `src/lib/store.ts`
+- **API client:** `src/lib/api.ts` — axios instance with auth interceptor (reads `access_token` from localStorage), auto-refresh on 401, 429 handling
+- **Routing:** react-router-dom — `/login`, `/auth` (callback), `/*` (protected file browser)
+- **Components:** 12 components in `src/components/`, all functional + hooks
 
-## Port Setup
-- `EXPOSE 7860` — HF Space exposes this port.
-- nginx listens on 7860 (match in nginx.conf).
+## Build & run
+```bash
+npm install
+npm run dev          # Vite dev on :3000, proxies /api → localhost:8000
+npm run build        # production build → dist/
+npm run lint         # eslint --max-warnings 0
+```
 
-## Environment Variables
-- `VITE_API_URL` — **required** HF Space secret. Backend Space URL (e.g. `https://user-teleplay-backend.hf.space`).
-- Set via Docker `ARG` during build, then available as `envsubst '$BACKEND_URL'` in nginx config at runtime.
+## Dockerfile (multi-stage)
+```dockerfile
+FROM node:20-slim as builder
+# COPY . .     ← all source at repo root
+# RUN npm run build
 
-## Key Files
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Multi-stage: node:20-slim builds, nginx:alpine serves |
-| `nginx.conf` | Reverse proxies `/api` to backend, serves SPA on `/` |
-| `src/` | React application source |
-| `hf-wrapper/` | Available for future use (not currently wired in) |
+FROM nginx:alpine
+# ENV BACKEND_URL=${VITE_API_URL}
+# envsubst '${BACKEND_URL}' in 40-envsubst.sh at runtime
+# CMD ["nginx", "-g", "daemon off;"]
+```
+- `VITE_API_URL` is a build ARG (baked into JS bundle). `BACKEND_URL` is runtime env for nginx `proxy_pass`.
+- `hf-wrapper/` is included in repo but **not used** by the Dockerfile (nginx container, no wrapper entrypoint).
+
+## Nginx (`nginx.conf`)
+- `proxy_pass ${BACKEND_URL};` — no trailing URI, so `/api/foo` → `${BACKEND_URL}/api/foo`
+- Only `$BACKEND_URL` is envsubst'd at runtime — nginx `$uri`, `$scheme`, `$host` etc. are nginx runtime vars, safe from substitution.
+- Security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: no-referrer-when-downgrade`
+
+## Deploy (HF Space SDK: Docker)
+1. Create Space with Docker SDK
+2. Set `VITE_API_URL` as build-time secret (`https://user-teleplay-backend.hf.space`)
+3. Frontend Space exposes port 7860, nginx listens on 7860
+
+## Key env vars
+| Var | When | Notes |
+|-----|------|-------|
+| `VITE_API_URL` | build ARG | Backend Space URL (required). Default: `https://yourname-teleplay-backend.hf.space` |
+| `BACKEND_URL` | runtime ENV | Inherits from `VITE_API_URL`. Used by nginx `proxy_pass` |
 
 ## Gotchas
-- `envsubst` only replaces `$BACKEND_URL` (quoted in sh call) — nginx `$uri`, `$http_upgrade` etc. are safe.
+- Token is stored in `localStorage('access_token')` and sent via `Authorization: Bearer` header (axios interceptor). Thumbnails use `AuthImage` component (fetch + blob URL with Bearer header) — no `?token=` in `<img>` tags.
+- `<video>`/`<audio>` stream URLs unavoidably include `?token=` query param. `referrerPolicy="no-referrer"` is set on media elements.
+- Drag-and-drop: FileCard sets `text/plain` data, FolderCard sets `application/json` data with `{type, id}`.
+- `@dnd-kit/*` and `video.js` have been removed — not used.
 - `package-lock.json` must be committed for reproducible builds.
+- Dev proxy config in `vite.config.ts` proxies `/api` → `http://localhost:8000`.
+- TypeScript strict mode with `noUnusedLocals`, `noUnusedParameters`.
