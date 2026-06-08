@@ -213,10 +213,10 @@ function LoginPage() {
 
             <div className="glass-panel p-8 max-w-md w-full text-center animate-scale-in relative z-10">
                 {/* Logo */}
-                <img src={logo} alt="TelePlay" className="w-24 h-24 mx-auto mb-6 drop-shadow-2xl" />
+                <img src={logo} alt="Aruvi" className="w-24 h-24 mx-auto mb-6 drop-shadow-2xl" />
 
                 <h1 className="text-3xl font-bold mb-2 text-gradient">
-                    TelePlay
+                    Aruvi
                 </h1>
                 <p className="text-dark-400 mb-8">
                     Stream your files from Telegram
