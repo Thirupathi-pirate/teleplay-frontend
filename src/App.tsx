@@ -86,6 +86,8 @@ function AuthCallback() {
 // App.tsx imports: Routes, Route, Navigate, useSearchParams, useNavigate (react-router-dom); useEffect, useState (react); useCurrentUser (./lib/api); FileBrowser
 // It does NOT import lucide-react icons. I'll use text or existing SVG.
 
+const LOGIN_CODE_KEY = 'teleplay_login_code';
+
 function LoginPage() {
     const { mutate: loginByCode, isPending: isVerifying } = useLoginWithCode();
     const { mutate: generateCode, isPending: isGenerating } = useGenerateLoginCode();
@@ -94,13 +96,29 @@ function LoginPage() {
     const [code, setCode] = useState('');
     const [isPolling, setIsPolling] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [expiresAt, setExpiresAt] = useState<string | null>(null);
+    const [timeLeft, setTimeLeft] = useState('');
 
-    // Initial code generation
+    // Restore or generate login code (survives page reload when returning from Telegram)
     useEffect(() => {
+        const saved = sessionStorage.getItem(LOGIN_CODE_KEY);
+        if (saved) {
+            try {
+                const { code: savedCode, expires_at } = JSON.parse(saved);
+                if (new Date(expires_at) > new Date()) {
+                    setCode(savedCode);
+                    setExpiresAt(expires_at);
+                    setIsPolling(true);
+                    return;
+                }
+            } catch {}
+        }
         generateCode(undefined, {
             onSuccess: (data) => {
                 setCode(data.code);
+                setExpiresAt(data.expires_at);
                 setIsPolling(true);
+                sessionStorage.setItem(LOGIN_CODE_KEY, JSON.stringify({ code: data.code, expires_at: data.expires_at }));
             },
             onError: (err: any) => {
                 setError(err.response?.data?.detail || "Failed to generate code");
@@ -118,6 +136,7 @@ function LoginPage() {
                         localStorage.setItem('access_token', data.access_token);
                         localStorage.setItem('refresh_token', data.refresh_token);
                         setIsPolling(false);
+                        sessionStorage.removeItem(LOGIN_CODE_KEY);
                         window.location.href = '/';
                     },
                     onError: () => {
@@ -131,6 +150,25 @@ function LoginPage() {
         };
     }, [isPolling, code, verifyCode]);
 
+    // Countdown timer for code expiry
+    useEffect(() => {
+        if (!expiresAt) return;
+        const update = () => {
+            const diff = new Date(expiresAt).getTime() - Date.now();
+            if (diff <= 0) {
+                setTimeLeft('Expired');
+                sessionStorage.removeItem(LOGIN_CODE_KEY);
+                return;
+            }
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            setTimeLeft(`${mins}:${secs.toString().padStart(2, '0')}`);
+        };
+        update();
+        const interval = setInterval(update, 1000);
+        return () => clearInterval(interval);
+    }, [expiresAt]);
+
     const handleManualLogin = (e: React.FormEvent) => {
         e.preventDefault();
         if (!code) return;
@@ -139,6 +177,7 @@ function LoginPage() {
             onSuccess: (data) => {
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('refresh_token', data.refresh_token);
+                sessionStorage.removeItem(LOGIN_CODE_KEY);
                 window.location.href = '/';
             },
             onError: (err: any) => {
@@ -215,6 +254,7 @@ function LoginPage() {
                             <div className="flex items-center justify-center gap-2 mt-4 text-xs text-dark-400">
                                 <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></div>
                                 Waiting for confirmation...
+                                {timeLeft && <span className="text-dark-500">({timeLeft})</span>}
                             </div>
                         )}
                         
