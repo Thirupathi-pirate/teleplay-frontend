@@ -99,6 +99,16 @@ function LoginPage() {
     const [expiresAt, setExpiresAt] = useState<string | null>(null);
     const [timeLeft, setTimeLeft] = useState('');
 
+    // Clear any bogus tokens from previous broken sessions
+    useEffect(() => {
+        const t = localStorage.getItem('access_token');
+        if (t === 'undefined' || t === 'null' || !t) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+        }
+    }, []);
+
     // Restore or generate login code (survives page reload when returning from Telegram)
     useEffect(() => {
         const saved = sessionStorage.getItem(LOGIN_CODE_KEY);
@@ -133,6 +143,8 @@ function LoginPage() {
             timer = setInterval(() => {
                 verifyCode(code, {
                     onSuccess: (data) => {
+                        // Ignore 202 "pending" responses — no access_token yet
+                        if (!data.access_token) return;
                         localStorage.setItem('access_token', data.access_token);
                         localStorage.setItem('refresh_token', data.refresh_token);
                         setIsPolling(false);
@@ -175,6 +187,10 @@ function LoginPage() {
 
         loginByCode(code, {
             onSuccess: (data) => {
+                if (!data.access_token) {
+                    setError("Invalid response from server");
+                    return;
+                }
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('refresh_token', data.refresh_token);
                 sessionStorage.removeItem(LOGIN_CODE_KEY);
@@ -326,35 +342,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
 
     if (error) {
-        console.log('[ProtectedRoute] Auth error, showing error message');
-        // Show error instead of immediately redirecting
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-dark-950 p-4">
-                <div className="text-center max-w-md">
-                    <p className="text-red-400 text-lg mb-4">Authentication Error</p>
-                    <p className="text-dark-400 text-sm mb-4">
-                        {error instanceof Error ? error.message : 'Failed to verify token'}
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                        <button
-                            onClick={() => refetch()}
-                            className="px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded text-white transition-colors"
-                        >
-                            Retry
-                        </button>
-                        <button
-                            onClick={() => {
-                                localStorage.removeItem('access_token');
-                                window.location.href = '/login';
-                            }}
-                            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded text-white transition-colors"
-                        >
-                            Go to Login
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
+        console.log('[ProtectedRoute] Auth error, redirecting to login');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        return <Navigate to="/login" replace />;
     }
 
     return <>{children}</>;
