@@ -57,8 +57,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
 
     // Quality (informational only)
-    const sourceHeight = (file as any).height || 1080;
-    const resolutions = [2160, 1440, 1080, 720, 480, 360, 240].filter(r => r <= sourceHeight);
+    const sourceHeight = file.height ?? 1080;
     const formatResolution = (r: number) => r >= 2160 ? '4K' : r >= 1440 ? '1440p' : `${r}p`;
 
     // Fit mode
@@ -66,7 +65,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
 
     // Settings panel
     const [showSettings, setShowSettings] = useState(false);
-    const [showQualitySub, setShowQualitySub] = useState(false);
     const [showAudioSub, setShowAudioSub] = useState(false);
     const [showFitSub, setShowFitSub] = useState(false);
 
@@ -702,13 +700,10 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
 
                         {/* Quality (informational) */}
                         <div className="mb-4">
-                            <button
-                                onClick={() => setShowQualitySub(!showQualitySub)}
-                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                            >
+                            <div className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5">
                                 <span className="text-sm font-medium text-white">Quality</span>
                                 <span className="text-sm text-primary-400">{formatResolution(sourceHeight)}</span>
-                            </button>
+                            </div>
                         </div>
 
                         {/* Fit Mode */}
