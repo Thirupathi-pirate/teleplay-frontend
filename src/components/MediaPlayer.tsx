@@ -1,8 +1,5 @@
-/**
- * MediaPlayer - full screen video/audio player
- */
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, ChevronDown, ChevronUp, Film, Music } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, Settings, Music, Film, ChevronDown, ChevronUp } from 'lucide-react';
 import { TelegramFile, formatDuration, useUpdateProgress, useFile, api } from '../lib/api';
 import { useAppStore } from '../lib/store';
 import AuthImage from './AuthImage';
@@ -22,6 +19,22 @@ interface MediaPlayerContentProps {
     setMinimized: (minimized: boolean) => void;
 }
 
+type FitMode = 'fit' | 'fill' | 'stretch' | 'original';
+
+const FIT_MODE_LABELS: Record<FitMode, string> = {
+    fit: 'Fit',
+    fill: 'Fill',
+    stretch: 'Stretch',
+    original: 'Original',
+};
+
+const FIT_MODE_STYLES: Record<FitMode, React.CSSProperties> = {
+    fit: { objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' },
+    fill: { objectFit: 'cover', maxWidth: '100%', maxHeight: '100%' },
+    stretch: { objectFit: 'fill', maxWidth: '100%', maxHeight: '100%' },
+    original: { objectFit: 'contain', maxWidth: 'none', maxHeight: 'none', width: 'auto', height: 'auto' },
+};
+
 function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaPlayerContentProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -38,6 +51,51 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const [error, setError] = useState<string | null>(null);
     const hideControlsTimeout = useRef<ReturnType<typeof setTimeout>>();
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
+
+    // Audio tracks
+    const [audioTracks, setAudioTracks] = useState<{ id: number; label: string; language: string; enabled: boolean }[]>([]);
+    const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
+
+    // Quality (informational only)
+    const sourceHeight = (file as any).height || 1080;
+    const resolutions = [2160, 1440, 1080, 720, 480, 360, 240].filter(r => r <= sourceHeight);
+    const formatResolution = (r: number) => r >= 2160 ? '4K' : r >= 1440 ? '1440p' : `${r}p`;
+
+    // Fit mode
+    const [fitMode, setFitMode] = useState<FitMode>('fit');
+
+    // Settings panel
+    const [showSettings, setShowSettings] = useState(false);
+    const [showQualitySub, setShowQualitySub] = useState(false);
+    const [showAudioSub, setShowAudioSub] = useState(false);
+    const [showFitSub, setShowFitSub] = useState(false);
+
+    const extractAudioTracks = useCallback(() => {
+        const video = videoRef.current;
+        if (!video || !('audioTracks' in video)) return;
+        const tracks = (video as any).audioTracks;
+        if (!tracks || tracks.length === 0) return;
+        const list = Array.from(tracks).map((t: any, i: number) => ({
+            id: i,
+            label: t.label || `Track ${i + 1}`,
+            language: t.language || '',
+            enabled: t.enabled,
+        }));
+        setAudioTracks(list);
+        const idx = list.findIndex((t: any) => t.enabled);
+        setSelectedAudioTrack(idx >= 0 ? idx : 0);
+    }, []);
+
+    const switchAudioTrack = useCallback((index: number) => {
+        const video = videoRef.current;
+        if (!video || !('audioTracks' in video)) return;
+        const tracks = (video as any).audioTracks;
+        if (!tracks) return;
+        for (let i = 0; i < tracks.length; i++) {
+            tracks[i].enabled = i === index;
+        }
+        setSelectedAudioTrack(index);
+    }, []);
 
     // Fetch fresh file details to get latest progress
     const { data: extendedFile } = useFile(file.id);
@@ -91,7 +149,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                     duration: videoRef.current.duration
                 });
             }
-        }, 10000); // Save every 10s
+        }, 10000);
 
         return () => clearInterval(interval);
     }, [isPlaying, file.id, error, updateProgress]);
@@ -181,7 +239,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const handleError = () => {
         if (videoRef.current?.error) {
             const code = videoRef.current.error.code;
-            if (code === 3 || code === 4) { // MEDIA_ERR_DECODE or MEDIA_ERR_SRC_NOT_SUPPORTED
+            if (code === 3 || code === 4) {
                 setError("Browser cannot decode this video format.");
             } else {
                 setError("An error occurred while trying to play this video.");
@@ -244,10 +302,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                     if (isFullscreen) {
                         document.exitFullscreen();
                     } else if (!isMinimized) {
-                        // If full screen mode (not minimized), esc minimizes? or closes?
-                        // Standard behavior: ESC closes modal. 
-                        // But for music we might want minimize.
-                        // Let's stick to close on ESC for now, user can minimize via button.
                         onClose();
                     }
                     break;
@@ -273,7 +327,7 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
         if (videoRef.current && !error) {
             videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
         }
-    }, [error, file.id]); // Re-run when file changes
+    }, [error, file.id]);
 
     const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -287,15 +341,22 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const externalUrl = publicUrl || authorizedStreamUrl;
     const vlcUrl = `vlc://${externalUrl}`;
 
+    // Fit mode style
+    const videoStyle = FIT_MODE_STYLES[fitMode];
+
     // Common Media Element
     const MediaElement = isVideo ? (
         <video
             ref={videoRef}
             src={authorizedStreamUrl}
-            className={`max-w-full max-h-full w-full h-full object-contain ${isMinimized ? 'hidden' : ''}`}
+            className={`max-w-full max-h-full w-full h-full ${isMinimized ? 'hidden' : ''}`}
+            style={videoStyle}
             onClick={togglePlay}
             onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
+            onLoadedMetadata={() => {
+                handleLoadedMetadata();
+                extractAudioTracks();
+            }}
             onWaiting={handleWaiting}
             onPlaying={handlePlaying}
             onError={handleError}
@@ -314,7 +375,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
         />
     );
 
-    // Unified Render
     return (
         <div
             ref={containerRef}
@@ -413,7 +473,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             {isMinimized && (
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 p-3 h-full">
                     <div className="flex items-center gap-3 overflow-hidden flex-1 cursor-pointer" onClick={() => setMinimized(false)}>
-                         {/* Thumbnail/Icon */}
                         <div className="w-12 h-12 rounded-lg bg-dark-800 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/5 relative">
                             {authorizedThumbnailUrl ? (
                                 <img src={authorizedThumbnailUrl} alt="Thumb" className="w-full h-full object-cover" />
@@ -523,7 +582,6 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                         <div className="flex items-center gap-4 mb-4 group/progress">
                             <span className="text-sm font-medium text-white/90 min-w-[50px] font-mono">{formatDuration(Math.floor(currentTime))}</span>
                             <div className="relative flex-1 h-1 bg-white/20 rounded-full cursor-pointer group-hover/progress:h-2 transition-all">
-                                {/* Buffered progress can be added here */}
                                 <div
                                     className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary-500 to-primary-400 rounded-full transition-all"
                                     style={{ width: `${progressPercent}%` }}
@@ -588,6 +646,21 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                     <span>{playbackSpeed}x</span>
                                 </button>
 
+                                {/* Settings */}
+                                {isVideo && (
+                                    <button
+                                        onClick={() => setShowSettings(!showSettings)}
+                                        className={`p-2 rounded-lg transition-all ${
+                                            showSettings
+                                                ? 'bg-primary-500/30 text-primary-300'
+                                                : 'hover:bg-white/10 text-white/80 hover:text-white'
+                                        }`}
+                                        title="Settings"
+                                    >
+                                        <Settings className="w-5 h-5" />
+                                    </button>
+                                )}
+
                                 {/* PiP */}
                                 {isVideo && document.pictureInPictureEnabled && (
                                     <button
@@ -612,6 +685,92 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Panel */}
+            {showSettings && !isMinimized && isVideo && (
+                <div className="absolute inset-0 z-40" onClick={() => setShowSettings(false)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                    <div
+                        className="absolute bottom-0 left-0 right-0 bg-dark-900/95 backdrop-blur-xl rounded-t-2xl border-t border-white/10 p-5 pb-8 animate-slide-up max-w-lg mx-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+                        <h3 className="text-lg font-bold text-white mb-4">Settings</h3>
+
+                        {/* Quality (informational) */}
+                        <div className="mb-4">
+                            <button
+                                onClick={() => setShowQualitySub(!showQualitySub)}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            >
+                                <span className="text-sm font-medium text-white">Quality</span>
+                                <span className="text-sm text-primary-400">{formatResolution(sourceHeight)}</span>
+                            </button>
+                        </div>
+
+                        {/* Fit Mode */}
+                        <div className="mb-4">
+                            <button
+                                onClick={() => setShowFitSub(!showFitSub)}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            >
+                                <span className="text-sm font-medium text-white">Fit Mode</span>
+                                <span className="text-sm text-primary-400">{FIT_MODE_LABELS[fitMode]}</span>
+                            </button>
+                            {showFitSub && (
+                                <div className="mt-1 rounded-xl bg-white/5 overflow-hidden">
+                                    {(Object.keys(FIT_MODE_LABELS) as FitMode[]).map((mode) => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => { setFitMode(mode); setShowFitSub(false); }}
+                                            className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                                                fitMode === mode
+                                                    ? 'text-primary-300 bg-primary-500/10'
+                                                    : 'text-white/70 hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {FIT_MODE_LABELS[mode]}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Audio Track */}
+                        {audioTracks.length > 1 && (
+                            <div className="mb-4">
+                                <button
+                                    onClick={() => setShowAudioSub(!showAudioSub)}
+                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                                >
+                                    <span className="text-sm font-medium text-white">Audio Track</span>
+                                    <span className="text-sm text-primary-400">
+                                        {audioTracks[selectedAudioTrack]?.label || `Track ${selectedAudioTrack + 1}`}
+                                    </span>
+                                </button>
+                                {showAudioSub && (
+                                    <div className="mt-1 rounded-xl bg-white/5 overflow-hidden">
+                                        {audioTracks.map((track, index) => (
+                                            <button
+                                                key={track.id}
+                                                onClick={() => { switchAudioTrack(index); setShowAudioSub(false); }}
+                                                className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                                                    selectedAudioTrack === index
+                                                        ? 'text-primary-300 bg-primary-500/10'
+                                                        : 'text-white/70 hover:bg-white/5'
+                                                }`}
+                                            >
+                                                {track.label}
+                                                {track.language ? ` (${track.language})` : ''}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
