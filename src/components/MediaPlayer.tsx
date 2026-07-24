@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, Settings, Music, Film, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Download, ExternalLink, AlertTriangle, Copy, PictureInPicture2, Gauge, Settings, Music, Film, ChevronDown, ChevronUp, Subtitles } from 'lucide-react';
 import { TelegramFile, formatDuration, useUpdateProgress, useFile, api } from '../lib/api';
 import { useAppStore } from '../lib/store';
 import AuthImage from './AuthImage';
@@ -56,17 +56,26 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
     const [audioTracks, setAudioTracks] = useState<{ id: number; label: string; language: string; enabled: boolean }[]>([]);
     const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
 
-    // Quality (informational only)
+    // Quality
     const sourceHeight = file.height ?? 1080;
     const formatResolution = (r: number) => r >= 2160 ? '4K' : r >= 1440 ? '1440p' : `${r}p`;
+    const availableResolutions = [2160, 1440, 1080, 720, 480, 360].filter(r => r <= sourceHeight);
+    const [selectedQuality, setSelectedQuality] = useState(sourceHeight);
 
     // Fit mode
     const [fitMode, setFitMode] = useState<FitMode>('fit');
 
     // Settings panel
     const [showSettings, setShowSettings] = useState(false);
+    const [showQualitySub, setShowQualitySub] = useState(false);
     const [showAudioSub, setShowAudioSub] = useState(false);
     const [showFitSub, setShowFitSub] = useState(false);
+    // Subtitles
+    const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
+    const [subtitleLabel, setSubtitleLabel] = useState('');
+    const [subtitlesOn, setSubtitlesOn] = useState(true);
+    const [showSubPicker, setShowSubPicker] = useState(false);
+    const subtitleInputRef = useRef<HTMLInputElement>(null);
 
     const extractAudioTracks = useCallback(() => {
         const video = videoRef.current;
@@ -83,6 +92,42 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
         const idx = list.findIndex((t: any) => t.enabled);
         setSelectedAudioTrack(idx >= 0 ? idx : 0);
     }, []);
+
+
+    // ponytail: minimal SRT→VTT converter, covers 99% of real SRT files
+    const srtToVtt = (srt: string): string => {
+        let vtt = 'WEBVTT\n\n';
+        vtt += srt
+            .replace(/\r\n/g, '\n')
+            .replace(/(\d+)\r?\n(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/g, (_, _id, start, end) =>
+                `
+${start.replace(',', '.')} --> ${end.replace(',', '.')}`
+            )
+            .replace(/^\n+/, '');
+        return vtt;
+    };
+
+    const handleSubtitleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            let text = reader.result as string;
+            // Convert SRT to VTT if needed
+            if (file.name.endsWith('.srt')) {
+                text = srtToVtt(text);
+            }
+            // Revoke previous blob URL
+            if (subtitleUrl) URL.revokeObjectURL(subtitleUrl);
+            const blob = new Blob([text], { type: 'text/vtt' });
+            const url = URL.createObjectURL(blob);
+            setSubtitleUrl(url);
+            setSubtitleLabel(file.name.replace(/\.[^.]+$/, ''));
+            setSubtitlesOn(true);
+            setShowSubPicker(false);
+        };
+        reader.readAsText(file);
+    }, [subtitleUrl]);
 
     const switchAudioTrack = useCallback((index: number) => {
         const video = videoRef.current;
@@ -360,7 +405,18 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
             onError={handleError}
             controls={false}
             playsInline
-        />
+        >
+            {subtitleUrl && (
+                <track
+                    key={subtitleUrl + (subtitlesOn ? '-on' : '-off')}
+                    kind="subtitles"
+                    src={subtitleUrl}
+                    srcLang="en"
+                    label={subtitleLabel || 'Subtitles'}
+                    ref={(el) => { if (el) (el as any).track.mode = subtitlesOn ? 'showing' : 'hidden'; }}
+                />
+            )}
+        </video>
     ) : (
         <audio
             ref={videoRef as React.RefObject<HTMLAudioElement>}
@@ -659,6 +715,19 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                     </button>
                                 )}
 
+                                {/* Subtitles */}
+                                <button
+                                    onClick={() => setShowSubPicker(true)}
+                                    className={`p-2 rounded-lg transition-all ${
+                                        subtitleUrl
+                                            ? 'bg-primary-500/30 text-primary-300'
+                                            : 'hover:bg-white/10 text-white/80 hover:text-white'
+                                    }`}
+                                    title="Subtitles"
+                                >
+                                    <Subtitles className="w-5 h-5" />
+                                </button>
+
                                 {/* PiP */}
                                 {isVideo && document.pictureInPictureEnabled && (
                                     <button
@@ -673,6 +742,20 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                     </button>
                                 )}
 
+
+                                {/* VLC */}
+                                <a
+                                    href={vlcUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-all"
+                                    title="Open in VLC"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <ExternalLink className="w-5 h-5" />
+                                </a>
+
+                                {/* Fullscreen */}
                                 {/* Fullscreen */}
                                 <button
                                     onClick={toggleFullscreen}
@@ -698,12 +781,32 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
                         <h3 className="text-lg font-bold text-white mb-4">Settings</h3>
 
-                        {/* Quality (informational) */}
+                        {/* Quality */}
                         <div className="mb-4">
-                            <div className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5">
+                            <button
+                                onClick={() => setShowQualitySub(!showQualitySub)}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            >
                                 <span className="text-sm font-medium text-white">Quality</span>
-                                <span className="text-sm text-primary-400">{formatResolution(sourceHeight)}</span>
-                            </div>
+                                <span className="text-sm text-primary-400">{formatResolution(selectedQuality)}</span>
+                            </button>
+                            {showQualitySub && (
+                                <div className="mt-1 rounded-xl bg-white/5 overflow-hidden">
+                                    {availableResolutions.map((r) => (
+                                        <button
+                                            key={r}
+                                            onClick={() => { setSelectedQuality(r); setShowQualitySub(false); }}
+                                            className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                                                selectedQuality === r
+                                                    ? 'text-primary-300 bg-primary-500/10'
+                                                    : 'text-white/70 hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {formatResolution(r)}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Fit Mode */}
@@ -730,6 +833,36 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                                             {FIT_MODE_LABELS[mode]}
                                         </button>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+
+
+                        {/* Subtitles */}
+                        <div className="mb-4">
+                            <button
+                                onClick={() => subtitleUrl ? setSubtitlesOn(!subtitlesOn) : setShowSubPicker(true)}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            >
+                                <span className="text-sm font-medium text-white">Subtitles</span>
+                                <span className="text-sm text-primary-400">
+                                    {subtitleUrl ? (subtitlesOn ? 'On' : 'Off') : 'None'}
+                                </span>
+                            </button>
+                            {subtitleUrl && (
+                                <div className="mt-1 rounded-xl bg-white/5 overflow-hidden">
+                                    <button
+                                        onClick={() => { setSubtitlesOn(!subtitlesOn); setShowSettings(false); }}
+                                        className="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        {subtitlesOn ? 'Disable' : 'Enable'} — {subtitleLabel}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowSubPicker(true)}
+                                        className="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        Load different file…
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -769,6 +902,40 @@ function MediaPlayerContent({ file, onClose, isMinimized, setMinimized }: MediaP
                     </div>
                 </div>
             )}
+
+            {/* Subtitle File Picker */}
+            {showSubPicker && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center" onClick={() => setShowSubPicker(false)}>
+                    <div className="absolute inset-0 bg-black/60" />
+                    <div
+                        className="relative bg-dark-900/95 backdrop-blur-xl rounded-2xl border border-white/10 p-6 animate-scale-in max-w-sm w-full mx-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-bold text-white mb-1">Load Subtitles</h3>
+                        <p className="text-sm text-dark-300 mb-4">Select an SRT or VTT subtitle file</p>
+                        <button
+                            onClick={() => subtitleInputRef.current?.click()}
+                            className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-white/60 hover:border-primary-500/50 hover:text-primary-400 transition-colors flex flex-col items-center gap-2"
+                        >
+                            <Subtitles className="w-8 h-8" />
+                            <span className="text-sm font-medium">Choose .srt or .vtt file</span>
+                        </button>
+                        <button
+                            onClick={() => setShowSubPicker(false)}
+                            className="mt-3 w-full py-2 text-dark-400 hover:text-white text-sm transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+            <input
+                ref={subtitleInputRef}
+                type="file"
+                accept=".srt,.vtt,.sub"
+                onChange={handleSubtitleFile}
+                className="hidden"
+            />
         </div>
     );
 }
